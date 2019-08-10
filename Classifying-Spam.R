@@ -31,6 +31,7 @@ spam_features <- spam %>%
   ) %>%
   bind_cols(spam)
 
+# Explore the Data ----
 # Checking for missing values
 spam_features %>%
   map_df(~ sum(is.na(.))) %>%
@@ -44,12 +45,12 @@ spam_features %>%
   correlate(Category__X1) %>%
   plot_correlation_funnel()
 
-# Create a simpler dataset with most correlated features
+# Create a simpler dataset with most correlated variables
 spam_simple <- spam_features %>%
   select(
     Category,
-    n_digits,
     n_uq_chars,
+    n_digits,
     n_caps,
     n_chars,
     n_lowersp,
@@ -59,4 +60,17 @@ spam_simple <- spam_features %>%
     n_words,
     n_lowers
   )
+
+# Explore the relationship between two most correlated variables
+spam_simple %>%
+  ggplot(aes(n_uq_chars, n_digits, color = Category)) +
+  geom_point()
+
+# Split the data for modeling
+set.seed(123)
+data_split <- spam_simple %>%
+  initial_split(strata = "Category")
+
+training_data <- training(data_split)
+testing_data <- testing(data_split)
 
