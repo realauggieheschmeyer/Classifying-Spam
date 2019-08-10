@@ -74,3 +74,14 @@ data_split <- spam_simple %>%
 training_data <- training(data_split)
 testing_data <- testing(data_split)
 
+# Fit Models to the Data ----
+# Fit and measure the accuracy of a single-variable model
+logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(Category ~ n_uq_chars, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(truth = testing_data$Category) %>%
+  accuracy(truth, .pred_class)
+
+# map(spam_simple[,2:11], shapiro.test)
+# shapiro.test(spam_simple$n_uq_chars)
