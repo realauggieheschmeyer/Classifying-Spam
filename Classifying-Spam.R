@@ -2,6 +2,7 @@
 library(pacman)
 p_load(
   "correlationfunnel",
+  "gridExtra",
   "modelr",
   "readr",
   "SnowballC",
@@ -66,6 +67,7 @@ spam_simple %>%
   ggplot(aes(n_uq_chars, n_digits, color = Category)) +
   geom_point()
 
+# Fit GLM Models to the Data, Round 1 ----
 # Split the data for modeling
 set.seed(123)
 data_split <- spam_simple %>%
@@ -74,7 +76,6 @@ data_split <- spam_simple %>%
 training_data <- training(data_split)
 testing_data <- testing(data_split)
 
-# Fit Models to the Data ----
 # Fit and measure the kappa of a single-variable model
 logistic_reg() %>%
   set_engine("glm") %>%
@@ -110,6 +111,35 @@ logistic_reg() %>%
   mutate(truth = testing_data$Category) %>%
   kap(truth, .pred_class)
 # kappa = .899
+
+# Check for normality in the residuals
+shapiro.test(glm_model$fit$residuals[1:3000])
+glm_model$fit$residuals %>%
+  enframe() %>%
+  ggplot(aes(value)) +
+  geom_histogram(bins = sqrt(nrow(training_data)))
+# both p-value and histogram indicate non-normality
+
+# Fit GLM Models to the Data, Round 2 ----
+# Transform the variables to create normality
+glm_rec <- recipe(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  step_scale(all_predictors()) %>%
+  step_center(all_predictors()) %>%
+  prep()
+
+train_data <- juice(glm_rec)
+test_data <- bake(glm_rec, new_data = testing_data)
+
+# Compare distributions to ensure normality
+hist(training_data$n_uq_chars)
+hist(train_data$n_uq_chars)
+
+# # Visualize truth v. prediction
+# glm_model <- logistic_reg() %>%
+#   set_engine("glm") %>%
+#   fit(Category ~ n_uq_chars + n_digits, data = training_data)
+
+
 
 # map(spam_simple[,2:11], shapiro.test)
 # shapiro.test(spam_simple$n_uq_chars)
