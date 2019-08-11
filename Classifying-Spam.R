@@ -75,13 +75,41 @@ training_data <- training(data_split)
 testing_data <- testing(data_split)
 
 # Fit Models to the Data ----
-# Fit and measure the accuracy of a single-variable model
+# Fit and measure the kappa of a single-variable model
 logistic_reg() %>%
   set_engine("glm") %>%
   fit(Category ~ n_uq_chars, data = training_data) %>%
   predict(new_data = testing_data) %>%
   mutate(truth = testing_data$Category) %>%
-  accuracy(truth, .pred_class)
+  kap(truth, .pred_class)
+# kappa = .736
+
+# Fit and measure the kappa of a model with two variables
+logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(truth = testing_data$Category) %>%
+  kap(truth, .pred_class)
+# kappa = .857
+
+# Fit and measure the kappa of a model with three variables
+logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(Category ~ n_uq_chars + n_digits + n_caps, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(truth = testing_data$Category) %>%
+  kap(truth, .pred_class)
+# kappa = .857
+
+# Fit and measure the kappa of a model with all variables
+logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(Category ~ ., data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(truth = testing_data$Category) %>%
+  kap(truth, .pred_class)
+# kappa = .899
 
 # map(spam_simple[,2:11], shapiro.test)
 # shapiro.test(spam_simple$n_uq_chars)
