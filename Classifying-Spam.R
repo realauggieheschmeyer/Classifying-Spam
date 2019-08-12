@@ -81,15 +81,6 @@ data_split <- spam_simple %>%
 training_data <- training(data_split)
 testing_data <- testing(data_split)
 
-# Fit and measure the kappa of a single-variable model
-logistic_reg() %>%
-  set_engine("glm") %>%
-  fit(Category ~ n_uq_chars, data = training_data) %>%
-  predict(new_data = testing_data) %>%
-  mutate(truth = testing_data$Category) %>%
-  metrics(truth, .pred_class)
-# kappa = .736
-
 # Fit and measure the kappa of a model with two variables
 logistic_reg() %>%
   set_engine("glm") %>%
@@ -97,27 +88,8 @@ logistic_reg() %>%
   predict(new_data = testing_data) %>%
   mutate(truth = testing_data$Category) %>%
   metrics(truth, .pred_class)
-# kappa = .857
 
-# Fit and measure the kappa of a model with three variables
-logistic_reg() %>%
-  set_engine("glm") %>%
-  fit(Category ~ n_uq_chars + n_digits + n_caps, data = training_data) %>%
-  predict(new_data = testing_data) %>%
-  mutate(truth = testing_data$Category) %>%
-  metrics(truth, .pred_class)
-# kappa = .857
-
-# Fit and measure the kappa of a model with all variables
-logistic_reg() %>%
-  set_engine("glm") %>%
-  fit(Category ~ ., data = training_data) %>%
-  predict(new_data = testing_data) %>%
-  mutate(truth = testing_data$Category) %>%
-  metrics(truth, .pred_class)
-# kappa = .899
-
-# Visualize best yet simplest model
+# Observe the results of the model
 logistic_reg() %>%
   set_engine("glm") %>%
   fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
@@ -133,6 +105,23 @@ logistic_reg() %>%
   ggplot(aes(.pred_1, truth)) +
   geom_point() +
   geom_smooth(method = "glm", method.args = list(family = "binomial"))
+
+plot1 <- testing_data %>%
+  ggplot(aes(n_uq_chars, n_digits, color = Category)) +
+  geom_point() +
+  labs(title = "actual")
+
+plot2 <- logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(n_uq_chars = testing_data$n_uq_chars,
+         n_digits = testing_data$n_digits) %>%
+  ggplot(aes(n_uq_chars, n_digits, color = .pred_class)) +
+  geom_point() +
+  labs(title = "glm")
+
+grid.arrange(plot1, plot2, ncol = 1)
 
 # Fit Random Forest Model to the Data ----
 # Define grid of parameters
@@ -175,3 +164,15 @@ rand_forest(trees = 68) %>%
   predict(new_data = testing_data) %>%
   mutate(truth = testing_data$Category) %>%
   metrics(truth, .pred_class)
+
+plot3 <- rand_forest(trees = 68) %>%
+  set_engine("randomForest") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(n_uq_chars = testing_data$n_uq_chars,
+         n_digits = testing_data$n_digits) %>%
+  ggplot(aes(n_uq_chars, n_digits, color = .pred_class)) +
+  geom_point() +
+  labs(title = "random forest")
+
+grid.arrange(plot1, plot2, plot3, ncol = 2)
