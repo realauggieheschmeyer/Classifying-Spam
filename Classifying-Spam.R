@@ -134,6 +134,23 @@ logistic_reg() %>%
   geom_point() +
   geom_smooth(method = "glm", method.args = list(family = "binomial"))
 
+plot1 <- testing_data %>%
+  ggplot(aes(n_uq_chars, n_digits, color = Category)) +
+  geom_point() +
+  labs(title = "actual")
+
+plot2 <- logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(n_uq_chars = testing_data$n_uq_chars,
+         n_digits = testing_data$n_digits) %>%
+  ggplot(aes(n_uq_chars, n_digits, color = .pred_class)) +
+  geom_point() +
+  labs(title = "glm")
+
+grid.arrange(plot1, plot2, ncol = 1)
+
 # Fit Random Forest Model to the Data ----
 # Define grid of parameters
 param_grid <- grid_regular(range_set(trees, c(50, 500)), levels = 25)
@@ -175,3 +192,15 @@ rand_forest(trees = 68) %>%
   predict(new_data = testing_data) %>%
   mutate(truth = testing_data$Category) %>%
   metrics(truth, .pred_class)
+
+plot3 <- rand_forest(trees = 68) %>%
+  set_engine("randomForest") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(n_uq_chars = testing_data$n_uq_chars,
+         n_digits = testing_data$n_digits) %>%
+  ggplot(aes(n_uq_chars, n_digits, color = .pred_class)) +
+  geom_point() +
+  labs(title = "random forest")
+
+grid.arrange(plot1, plot2, plot3, ncol = 2)
