@@ -62,12 +62,17 @@ spam_simple <- spam_features %>%
     n_lowers
   )
 
-# Explore the relationship between two most correlated variables
+# Ensure significance of correlated variables
+spam_simple %>%
+  select(-Category) %>%
+  map(cor.test, as.numeric(spam_simple$Category))
+
+# Visual the relationship between two most correlated variables
 spam_simple %>%
   ggplot(aes(n_uq_chars, n_digits, color = Category)) +
   geom_point()
 
-# Fit GLM Models to the Data, Round 1 ----
+# Fit GLM Models to the Data ----
 # Split the data for modeling
 set.seed(123)
 data_split <- spam_simple %>%
@@ -82,7 +87,7 @@ logistic_reg() %>%
   fit(Category ~ n_uq_chars, data = training_data) %>%
   predict(new_data = testing_data) %>%
   mutate(truth = testing_data$Category) %>%
-  kap(truth, .pred_class)
+  metrics(truth, .pred_class)
 # kappa = .736
 
 # Fit and measure the kappa of a model with two variables
@@ -91,7 +96,7 @@ logistic_reg() %>%
   fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
   predict(new_data = testing_data) %>%
   mutate(truth = testing_data$Category) %>%
-  kap(truth, .pred_class)
+  metrics(truth, .pred_class)
 # kappa = .857
 
 # Fit and measure the kappa of a model with three variables
@@ -100,7 +105,7 @@ logistic_reg() %>%
   fit(Category ~ n_uq_chars + n_digits + n_caps, data = training_data) %>%
   predict(new_data = testing_data) %>%
   mutate(truth = testing_data$Category) %>%
-  kap(truth, .pred_class)
+  metrics(truth, .pred_class)
 # kappa = .857
 
 # Fit and measure the kappa of a model with all variables
@@ -109,37 +114,64 @@ logistic_reg() %>%
   fit(Category ~ ., data = training_data) %>%
   predict(new_data = testing_data) %>%
   mutate(truth = testing_data$Category) %>%
-  kap(truth, .pred_class)
+  metrics(truth, .pred_class)
 # kappa = .899
 
-# Check for normality in the residuals
-shapiro.test(glm_model$fit$residuals[1:3000])
-glm_model$fit$residuals %>%
-  enframe() %>%
-  ggplot(aes(value)) +
-  geom_histogram(bins = sqrt(nrow(training_data)))
-# both p-value and histogram indicate non-normality
+# Visualize best yet simplest model
+logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(truth = testing_data$Category) %>%
+  conf_mat(truth, .pred_class)
 
-# Fit GLM Models to the Data, Round 2 ----
-# Transform the variables to create normality
-glm_rec <- recipe(Category ~ n_uq_chars + n_digits, data = training_data) %>%
-  step_scale(all_predictors()) %>%
-  step_center(all_predictors()) %>%
-  prep()
+logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data, type = "prob") %>%
+  mutate(truth = as.numeric(testing_data$Category) - 1) %>%
+  ggplot(aes(.pred_1, truth)) +
+  geom_point() +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"))
 
-train_data <- juice(glm_rec)
-test_data <- bake(glm_rec, new_data = testing_data)
+# Fit Random Forest Model to the Data ----
+# Define grid of parameters
+param_grid <- grid_regular(range_set(trees, c(50, 500)), levels = 25)
 
-# Compare distributions to ensure normality
-hist(training_data$n_uq_chars)
-hist(train_data$n_uq_chars)
+# Set random forest engine
+rf_spec <- rand_forest("classification", trees = varying()) %>%
+  set_engine("randomForest")
 
-# # Visualize truth v. prediction
-# glm_model <- logistic_reg() %>%
-#   set_engine("glm") %>%
-#   fit(Category ~ n_uq_chars + n_digits, data = training_data)
+# Add model specifications to parameter grid
+param_grid <- param_grid %>%
+  mutate(specs = merge(., rf_spec))
 
+# Define function for fitting models with grid of parameters
+fit_one_spec <- function(model) {
+  model %>%
+    fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+    predict(new_data = testing_data) %>%
+    mutate(truth = testing_data$Category) %>%
+    kap(truth, .pred_class) %>%
+    pull(.estimate)
+}
 
+# Fit model with each of the parameters and find optimal
+param_grid %>%
+  mutate(kappa = map_dbl(specs, fit_one_spec)) %>%
+  filter(kappa == max(kappa))
 
-# map(spam_simple[,2:11], shapiro.test)
-# shapiro.test(spam_simple$n_uq_chars)
+# Observe results with the optimal parameter
+rand_forest(trees = 68) %>%
+  set_engine("randomForest") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(truth = testing_data$Category) %>%
+  conf_mat(truth, .pred_class)
+
+rand_forest(trees = 68) %>%
+  set_engine("randomForest") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(truth = testing_data$Category) %>%
+  metrics(truth, .pred_class)
