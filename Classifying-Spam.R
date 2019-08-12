@@ -89,7 +89,7 @@ logistic_reg() %>%
   mutate(truth = testing_data$Category) %>%
   metrics(truth, .pred_class)
 
-# Observe the results of the model
+# Confusion matrix
 logistic_reg() %>%
   set_engine("glm") %>%
   fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
@@ -97,6 +97,7 @@ logistic_reg() %>%
   mutate(truth = testing_data$Category) %>%
   conf_mat(truth, .pred_class)
 
+# Visualize the linear model
 logistic_reg() %>%
   set_engine("glm") %>%
   fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
@@ -106,11 +107,13 @@ logistic_reg() %>%
   geom_point() +
   geom_smooth(method = "glm", method.args = list(family = "binomial"))
 
+# Scatterplot of actual categories
 plot1 <- testing_data %>%
   ggplot(aes(n_uq_chars, n_digits, color = Category)) +
   geom_point() +
   labs(title = "actual")
 
+# Scatterplot of GLM-predicted categories
 plot2 <- logistic_reg() %>%
   set_engine("glm") %>%
   fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
@@ -121,6 +124,7 @@ plot2 <- logistic_reg() %>%
   geom_point() +
   labs(title = "glm")
 
+# Plot side-by-side
 grid.arrange(plot1, plot2, ncol = 1)
 
 # Fit Random Forest Model to the Data ----
@@ -150,14 +154,7 @@ param_grid %>%
   mutate(kappa = map_dbl(specs, fit_one_spec)) %>%
   filter(kappa == max(kappa))
 
-# Observe results with the optimal parameter
-rand_forest(trees = 68) %>%
-  set_engine("randomForest") %>%
-  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
-  predict(new_data = testing_data) %>%
-  mutate(truth = testing_data$Category) %>%
-  conf_mat(truth, .pred_class)
-
+# View metrics with optimal parameters
 rand_forest(trees = 68) %>%
   set_engine("randomForest") %>%
   fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
@@ -165,6 +162,15 @@ rand_forest(trees = 68) %>%
   mutate(truth = testing_data$Category) %>%
   metrics(truth, .pred_class)
 
+# Confidence matrix
+rand_forest(trees = 68) %>%
+  set_engine("randomForest") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(truth = testing_data$Category) %>%
+  conf_mat(truth, .pred_class)
+
+# Scatterplot of random forest-predicted categories
 plot3 <- rand_forest(trees = 68) %>%
   set_engine("randomForest") %>%
   fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
@@ -175,4 +181,5 @@ plot3 <- rand_forest(trees = 68) %>%
   geom_point() +
   labs(title = "random forest")
 
+# Plot side-by-side
 grid.arrange(plot1, plot2, plot3, ncol = 2)
