@@ -40,6 +40,7 @@ spam_features %>%
   arrange(desc(na_count))
 
 # Plotting a correlation funnel
+set.seed(123)
 spam_features %>%
   select(-text) %>%
   binarize(thresh_infreq = 0.0001) %>%
@@ -69,12 +70,11 @@ spam_simple %>%
 
 # Visual the relationship between two most correlated variables
 spam_simple %>%
-  ggplot(aes(n_uq_chars, n_digits, color = Category)) +
-  geom_point()
+  ggplot(aes(n_digits, n_uq_chars, color = Category)) +
+  geom_jitter(alpha = 1/3)
 
 # Fit GLM Models to the Data ----
 # Split the data for modeling
-set.seed(123)
 data_split <- spam_simple %>%
   initial_split(strata = "Category")
 
@@ -109,8 +109,8 @@ logistic_reg() %>%
 
 # Scatterplot of actual categories
 plot1 <- testing_data %>%
-  ggplot(aes(n_uq_chars, n_digits, color = Category)) +
-  geom_point() +
+  ggplot(aes(n_digits, n_uq_chars, color = Category)) +
+  geom_jitter(alpha = 1/3) +
   labs(title = "actual")
 
 # Scatterplot of GLM-predicted categories
@@ -120,12 +120,12 @@ plot2 <- logistic_reg() %>%
   predict(new_data = testing_data) %>%
   mutate(n_uq_chars = testing_data$n_uq_chars,
          n_digits = testing_data$n_digits) %>%
-  ggplot(aes(n_uq_chars, n_digits, color = .pred_class)) +
-  geom_point() +
+  ggplot(aes(n_digits, n_uq_chars, color = .pred_class)) +
+  geom_jitter(alpha = 1/3) +
   labs(title = "glm")
 
 # Plot side-by-side
-grid.arrange(plot1, plot2, ncol = 1)
+grid.arrange(plot1, plot2, nrow = 1)
 
 # Fit Random Forest Model to the Data ----
 # Define grid of parameters
@@ -155,7 +155,7 @@ param_grid %>%
   filter(kappa == max(kappa))
 
 # View metrics with optimal parameters
-rand_forest(trees = 68) %>%
+rand_forest(trees = 143) %>%
   set_engine("randomForest") %>%
   fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
   predict(new_data = testing_data) %>%
@@ -163,7 +163,7 @@ rand_forest(trees = 68) %>%
   metrics(truth, .pred_class)
 
 # Confidence matrix
-rand_forest(trees = 68) %>%
+rand_forest(trees = 143) %>%
   set_engine("randomForest") %>%
   fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
   predict(new_data = testing_data) %>%
@@ -171,15 +171,16 @@ rand_forest(trees = 68) %>%
   conf_mat(truth, .pred_class)
 
 # Scatterplot of random forest-predicted categories
-plot3 <- rand_forest(trees = 68) %>%
+plot3 <- rand_forest(trees = 143) %>%
   set_engine("randomForest") %>%
   fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
   predict(new_data = testing_data) %>%
   mutate(n_uq_chars = testing_data$n_uq_chars,
          n_digits = testing_data$n_digits) %>%
-  ggplot(aes(n_uq_chars, n_digits, color = .pred_class)) +
-  geom_point() +
+  ggplot(aes(n_digits, n_uq_chars, color = .pred_class)) +
+  geom_jitter(alpha = 1/3) +
   labs(title = "random forest")
 
 # Plot side-by-side
 grid.arrange(plot1, plot2, plot3, ncol = 2)
+
