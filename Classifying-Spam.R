@@ -184,3 +184,85 @@ plot3 <- rand_forest(trees = 143) %>%
 # Plot side-by-side
 grid.arrange(plot1, plot2, plot3, ncol = 2)
 
+# Fit XGBoost Model to the Data ----
+# Define grid of parameters
+param_grid <- grid_random(range_set(trees, c(128, 132)),
+                           range_set(tree_depth, c(137, 142)),
+                           range_set(learn_rate, c(.5, .55)),
+                           range_set(loss_reduction, c(.004, .008)),
+                           size = 100)
+
+# Set XGBoost engine
+rf_spec <-
+  boost_tree(
+    "classification",
+    trees = varying(),
+    min_n = varying(),
+    tree_depth = varying(),
+    learn_rate = varying(),
+    loss_reduction = varying()
+  ) %>%
+  set_engine("xgboost")
+
+# Add model specifications to parameter grid
+param_grid <- param_grid %>%
+  mutate(specs = merge(., rf_spec))
+
+# Fit model with each of the parameters and find optimal
+param_grid %>%
+  mutate(kappa = map_dbl(specs, fit_one_spec)) %>%
+  filter(kappa == max(kappa))
+
+# View metrics with optimal parameters
+boost_tree(
+  "classification",
+  trees = 130,
+  min_n = 5,
+  tree_depth = 139,
+  learn_rate = .524,
+  loss_reduction = .00679,
+  sample_size = 1
+) %>%
+  set_engine("xgboost") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(truth = testing_data$Category) %>%
+  metrics(truth, .pred_class)
+
+# Confidence matrix
+boost_tree(
+  "classification",
+  trees = 130,
+  min_n = 5,
+  tree_depth = 139,
+  learn_rate = .524,
+  loss_reduction = .00679,
+  sample_size = 1
+) %>%
+  set_engine("xgboost") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(truth = testing_data$Category) %>%
+  conf_mat(truth, .pred_class)
+
+# Scatterplot of random forest-predicted categories
+plot4 <- boost_tree(
+  "classification",
+  trees = 130,
+  min_n = 5,
+  tree_depth = 139,
+  learn_rate = .524,
+  loss_reduction = .00679,
+  sample_size = 1
+) %>%
+  set_engine("xgboost") %>%
+  fit(Category ~ n_uq_chars + n_digits, data = training_data) %>%
+  predict(new_data = testing_data) %>%
+  mutate(n_uq_chars = testing_data$n_uq_chars,
+         n_digits = testing_data$n_digits) %>%
+  ggplot(aes(n_digits, n_uq_chars, color = .pred_class)) +
+  geom_jitter(alpha = 1/3) +
+  labs(title = "xgboost")
+
+# Plot side-by-side
+grid.arrange(plot1, plot2, plot3, plot4, ncol = 2)
